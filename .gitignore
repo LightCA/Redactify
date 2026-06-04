@@ -1,0 +1,8 @@
+__pycache__
+logs/
+*.pyc
+.vscode/
+.env
+profile.austin
+models
+uv.lock

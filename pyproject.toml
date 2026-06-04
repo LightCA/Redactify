@@ -1,0 +1,40 @@
+[project]
+name = "redactify"
+version = "0.1.0"
+description = "A program that automatically detects and censors PII in audio and video"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "azure-core",
+    "numpy",
+    "speechbrain",
+    "opencv-contrib-python",
+    "torch",
+    "torchaudio",
+    "transformers",
+    "faster-whisper",
+    "pyannote-audio>=4.0.0",
+    "ctranslate2",
+    "nvidia-cublas-cu12 ; sys_platform != 'darwin'",
+    "nvidia-cudnn-cu12 ; sys_platform != 'darwin'",
+    "azure-ai-textanalytics",
+    "scipy",
+    "tk",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128", marker = "sys_platform != 'darwin'" }
+torchaudio = { index = "pytorch-cu128", marker = "sys_platform != 'darwin'" }
+opencv-contrib-python = [
+  { url = "https://github.com/cudawarped/opencv-python-cuda-wheels/releases/download/4.13.0.90/opencv_contrib_python-4.13.0.90-cp37-abi3-win_amd64.whl", marker = "sys_platform == 'win32'" },
+  { url = "https://github.com/cudawarped/opencv-python-cuda-wheels/releases/download/4.13.0.90/opencv_contrib_python-4.13.0.90-cp37-abi3-linux_x86_64.whl", marker = "sys_platform == 'linux'" },
+]
+
+[tool.black]
+line-length = 128
+skip-magic-trailing-comma = true
