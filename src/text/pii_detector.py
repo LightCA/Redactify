@@ -1,4 +1,5 @@
 import os
+import logging
 
 from typing import Optional, List, Dict, Any
 from azure.core.credentials import AzureKeyCredential
@@ -6,6 +7,8 @@ from azure.ai.textanalytics import TextAnalyticsClient
 
 
 class PIIDetector:
+    logger = logging.getLogger(__name__)
+
     MAX_CHARS_PER_DOC = 5120  # Azure's document character limit
     MAX_BATCH_SIZE = 5  # Max documents per request (free/standard tier)
 

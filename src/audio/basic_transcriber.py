@@ -1,5 +1,6 @@
-import numpy as np
 import torch
+import logging
+import numpy as np
 
 from typing import Any
 from functools import cached_property
@@ -9,6 +10,8 @@ from faster_whisper import BatchedInferencePipeline, WhisperModel
 
 
 class BasicTranscriber:
+    logger = logging.getLogger(__name__)
+    
     def __init__(self, config: AudioCensorConfig):
         self.config = config
 

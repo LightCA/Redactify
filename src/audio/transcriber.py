@@ -1,4 +1,7 @@
+import logging
+
 from typing import Any
+from pathlib import Path
 
 from .audio_io import AudioIO
 from .basic_transcriber import BasicTranscriber
@@ -8,14 +11,16 @@ from .separator import SpeechSeparator
 
 
 class Transcriber:
+    logger = logging.getLogger(__name__)
+
     def __init__(self, config: AudioCensorConfig):
         self.config = config
         self.asr = BasicTranscriber(config)
         self.aligner = ForcedAligner(config)
         self.separator = SpeechSeparator(config)
 
-    def run(self, audio_path: str) -> list[dict[str, Any]]:
-        waveform, _ = AudioIO.load(audio_path, self.config.sample_rate)
+    def run(self, input_path: Path) -> list[dict[str, Any]]:
+        waveform, _ = AudioIO.load(input_path, self.config.sample_rate)
         wf_voices = self.separator.separate(waveform)
 
         results = []

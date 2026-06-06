@@ -1,4 +1,4 @@
-# PII Processor
+# Redactify
 
 ## Table of Contents
 
@@ -12,7 +12,7 @@
   - [1.4.4. Run](#Run)
 - [1.5. Future Changes](#Future-Changes)
 
-A program that automatically detects and censors **PII** in **audio** and **video**.
+A solution that automatically detects and censors **PII** in **audio** and **video**. Faces are pixelated and spoken PII is replaced with a beep tone.
 
 ---
 
@@ -72,7 +72,7 @@ flowchart TD
 
 | Step | Description |
 |------|-------------|
-| **1. File Selection** | A tkinter file picker dialogue prompts for the source video. |
+| **1. File Selection** | If no `input_path` argument is given, a `crossfiledialog` file picker prompts for the source video. |
 | **2. Parallel Fork** | Two threads are started immediately. Each thread handles its own FFmpeg pre-processing step as its first action: the audio thread extracts the audio track to `input/.wav`; the video thread re-encodes to H264 (lossless, CRF 0) into `input/.mp4`. |
 | **3. Speaker Separation** | [Sepformer](https://huggingface.co/speechbrain/sepformer-whamr16k) decomposes the audio into individual speaker channels, improving downstream transcription accuracy in multi-speaker scenarios. |
 | **4. Speech-to-Text** | [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) (`large-v3`) transcribes each speaker channel with word-level timestamps. Auto-detects language from several supported languages. |
@@ -83,7 +83,7 @@ flowchart TD
 | **9. Face Detection** | Each video frame is passed through [OpenCV's YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) ONNX detector (CUDA-accelerated when available). Bounding boxes are returned per frame. |
 | **10. Face Censoring** | Each detected face region and its configured margin is decimated and overlayed onto the original frame with a configurable feathering effect. |
 | **11. Recombine** | FFmpeg combines the censored audio and video back into a single `.mp4` file. |
-| **12. Cleanup** | All intermediate files in `input/` and `pending/` are removed. |
+| **12. Cleanup** | All intermediate files in `input/` and `intermediate/` are removed. |
 
 ---
 
@@ -94,6 +94,7 @@ flowchart TD
 | **Transcript Accuracy** | PII detection depends on transcription quality. Background noise, heavy accents, or overlapping speech can reduce accuracy. |
 | **Face detection** | YuNet performs best on frontal, well-lit faces. Small, heavily rotated, or partially occluded faces may be missed. |
 | **Speaker separation limit** | Sepformer is trained for 2-speaker separation; 3+ speaker scenarios may degrade quality. |
+| **Alignment Number Issue** | Spoken numbers over one digit will not get aligned by [MMS Forced Aligner](https://pytorch.org/audio/stable/tutorials/forced_alignment_tutorial.html). |
 
 ---
 
@@ -124,7 +125,7 @@ PIIDETECTOR_TAC_ENDPOINT="https://<your-resource>.cognitiveservices.azure.com/"
 PIIDETECTOR_TAC_KEY="<your-key>"
 HF_TOKEN="<huggingface-token>"
 MODELS_DIRECTORY="./models"
-BASE_DIRECTORY="path\\to\\working\\directory"
+WORKING_DIRECTORY="path\\to\\working\\directory"
 ```
 
 | Variable | Purpose |
@@ -133,15 +134,47 @@ BASE_DIRECTORY="path\\to\\working\\directory"
 | `PIIDETECTOR_TAC_KEY` | Azure AI Language API key |
 | `HF_TOKEN` | Hugging Face token, required to download Sepformer and Pyannote models on first run |
 | `MODELS_DIRECTORY` | Local path where downloaded models are cached |
-| `BASE_DIRECTORY` | Working directory. The pipeline uses three subdirectories: `input/` for normalised pre-processed files, `pending/` for intermediate censored tracks, and `output/` for the final redacted video. |
+| `WORKING_DIRECTORY` | Working directory. The pipeline uses three subdirectories: `input/` for normalised pre-processed files, `intermediate/` for intermediate censored tracks, and `output/` for the final redacted video. |
 
 ### Run
 
 ```bash
-uv run src/main.py
+uv run src/main.py [input_path] [output_path] [options]
 ```
 
-A file picker dialogue will open, select the video file you want to censor. The pipeline will then run automatically, writing the censored output to `<BASE_DIRECTORY>/output/<filename>.mp4`.
+`input_path` and `output_path` are both optional. If `input_path` is omitted a file picker dialogue opens. If `output_path` is omitted the result is written to `<WORKING_DIRECTORY>/output/<filename>.mp4`.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--device {auto,cpu,cuda}` | `auto` | Compute device for ML models |
+| `--compute-type {auto,float16,int8}` | `auto` | Whisper weight precision |
+| `--whisper-model MODEL` | `large-v3` | Faster-Whisper model name |
+| `--language LANG` | auto-detect | BCP-47 language code for transcription |
+| `--asr-batch-size N` | — | Whisper inference batch size |
+| `--alignment-padding SECS` | — | Extra context window passed to MMS aligner |
+| `--censor-frequency HZ` | `1000` | Beep tone frequency |
+| `--censor-amplitude AMP` | — | Beep tone amplitude (0–1) |
+| `--censor-padding SECS` | `0.1` | Silence padding added before/after each beep |
+| `--fd-score-threshold F` | — | YuNet face detection confidence threshold |
+| `--fd-nms-threshold F` | — | YuNet NMS IoU threshold |
+| `--fd-top-k N` | — | Maximum number of faces detected per frame |
+| `--blur-expansion F` | — | Bounding-box expansion factor for face blur region |
+| `--blur-feather-inner F` | — | Inner feather radius (fraction of region size) |
+| `--blur-feather-outer F` | — | Outer feather radius (fraction of region size) |
+| `--blur-downsample-resolution N` | — | Pixelation grid resolution |
+
+**Examples**
+
+```bash
+# GUI file picker, default output path
+uv run src/main.py
+
+# Explicit paths
+uv run src/main.py footage.mp4 redacted.mp4
+
+# Force CPU, custom beep frequency
+uv run src/main.py footage.mp4 --device cpu --censor-frequency 800
+```
 
 ---
 
@@ -154,7 +187,8 @@ A file picker dialogue will open, select the video file you want to censor. The 
 | **OpenCV Cuda Optimisation** | Current CUDA implementation of blurring is primitive and lacks features. |
 | **Censoring Technique** | Add gaussian blur to censored objects for a more professional look. |
 | **Video PII Detection** | Add detection for objects that may contain PII such as ID and credit cards. |
-| **CLI / API interface** | Argument parsing (`argparse` or `typer`) and optionally expose a REST endpoint via FastAPI for on-demand processing. |
+| **CLI enhancements** | Add sub-commands (e.g. `audio-only`, `video-only`) and richer progress reporting. |
+| **API interface** | Expose a REST endpoint via FastAPI for on-demand processing. |
 | **Redaction report** | Generate a structured JSON or PDF report listing all detected PII entities, their categories, confidence scores, and timestamps. |
 | **Containerisation** | Package the full stack as a Docker image with CUDA base to simplify deployment and eliminate the manual FFmpeg / Python version constraints. |
 | **Application Insights integration** | Send telemetry to Azure Application Insights. |

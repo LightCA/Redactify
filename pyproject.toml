@@ -6,20 +6,20 @@ readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "azure-core",
+    "azure-ai-textanalytics",
     "numpy",
-    "speechbrain",
+    "scipy",
     "opencv-contrib-python",
     "torch",
     "torchaudio",
     "transformers",
+    "speechbrain",
     "faster-whisper",
     "pyannote-audio>=4.0.0",
     "ctranslate2",
     "nvidia-cublas-cu12 ; sys_platform != 'darwin'",
     "nvidia-cudnn-cu12 ; sys_platform != 'darwin'",
-    "azure-ai-textanalytics",
-    "scipy",
-    "tk",
+    "crossfiledialog",
 ]
 
 [[tool.uv.index]]

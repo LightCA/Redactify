@@ -1,3 +1,7 @@
+import logging
+
+from pathlib import Path
+
 from text.pii_detector import PIIDetector
 from .transcriber import Transcriber
 from .censor_beep import CensorBeep
@@ -5,8 +9,13 @@ from config.audio_censor_config import AudioCensorConfig
 
 
 class AudioCensor:
+    logger = logging.getLogger(__name__)
+
     @staticmethod
-    def run(input_path: str, output_path: str, config: AudioCensorConfig):
+    def run(input_path: Path, output_path: Path, config: AudioCensorConfig | None):
+        if config is None:
+            config = AudioCensorConfig()
+
         transcriber = Transcriber(config)
 
         t_res = transcriber.run(input_path)

@@ -1,9 +1,14 @@
+import logging
 import subprocess
+
+from pathlib import Path
 
 
 class VideoIO:
+    logger = logging.getLogger(__name__)
+
     @staticmethod
-    def extract_audio_from_video(input_path: str, output_path: str):
+    def extract_audio_from_video(input_path: Path, output_path: Path):
         subprocess.run(
             [
                 "ffmpeg",
@@ -22,10 +27,11 @@ class VideoIO:
                 output_path,
             ],
             check=True,
+            stderr=subprocess.PIPE,
         )
 
     @staticmethod
-    def combine_audio_video(video_path: str, audio_path: str, output_path: str):
+    def combine_audio_video(video_path: Path, audio_path: Path, output_path: Path):
         subprocess.run(
             [
                 "ffmpeg",
@@ -48,4 +54,5 @@ class VideoIO:
                 output_path,
             ],
             check=True,
+            stderr=subprocess.PIPE,
         )

@@ -1,5 +1,6 @@
 import re
 import torch
+import logging
 
 from typing import Any
 from functools import cached_property
@@ -9,6 +10,8 @@ from config.audio_censor_config import AudioCensorConfig
 
 
 class ForcedAligner:
+    logger = logging.getLogger(__name__)
+
     _digit_map = {
         "0": "zero",
         "1": "one",
@@ -36,9 +39,9 @@ class ForcedAligner:
                 "sample_rate": bundle.sample_rate,
                 "dictionary": set(bundle.get_dict().keys()),
             }
-        except Exception as exc:
-            print(
-                f"Forced alignment disabled (could not load torchaudio MMS_FA bundle): {exc}\nRequires torchaudio>=2.1. Falling back to Whisper's native word timestamps."
+        except Exception as ex:
+            self.logger.error(
+                f"Forced alignment disabled (could not load torchaudio MMS_FA bundle): {ex}\nRequires torchaudio>=2.1. Falling back to Whisper's native word timestamps."
             )
             return None
 
@@ -86,7 +89,7 @@ class ForcedAligner:
                 words[word_idx]["end"] = chunk_start + word_spans[-1].end * frame_to_time
                 words[word_idx]["align_score"] = float(sum(s.score for s in word_spans) / len(word_spans))
         except Exception as ex:
-            print(f"Alignment failed for '{segment.get('text','')[:40]}': {ex}")
+            self.logger.error(f"Alignment failed for '{segment.get('text','')[:40]}': {ex}")
             raise ex
 
         segment["start"] = words[0]["start"]

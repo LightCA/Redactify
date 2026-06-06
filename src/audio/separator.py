@@ -1,5 +1,6 @@
 import os
 import torch
+import logging
 
 from functools import cached_property
 from speechbrain.utils.fetching import LocalStrategy
@@ -9,6 +10,8 @@ from config.audio_censor_config import AudioCensorConfig
 
 
 class SpeechSeparator:
+    logger = logging.getLogger(__name__)
+
     def __init__(self, config: AudioCensorConfig):
         self.config = config
 
@@ -16,9 +19,11 @@ class SpeechSeparator:
     def _model(self):
         savedir = os.path.join(os.environ["MODELS_DIRECTORY"], self.config.sep_model_source.rsplit("/", 1)[-1])
         sepformer = SepformerSeparation.from_hparams(
-            source=self.config.sep_model_source, savedir=savedir, local_strategy=LocalStrategy.COPY
+            source=self.config.sep_model_source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.COPY,
+            run_opts={"device": f"{self.config.device}:0"},  # TODO: Allow specifying device index for multi-GPU setups
         )
-        sepformer.to(self.config.device)
         return sepformer
 
     def separate(self, waveform: torch.Tensor, start: float = 0, end: float = -1) -> list[torch.Tensor]:
@@ -32,7 +37,7 @@ class SpeechSeparator:
             chunk = waveform[:, int(start * sr) : int(end * sr)].to(self.config.device)
 
         with torch.no_grad():
-            est = self._model.separate_batch(chunk)  # [1, T, n_spk]
+            est = self._model.separate_batch(chunk)  # type: ignore # [1, T, n_spk]
         return [est[0, :, i].cpu() for i in range(est.shape[-1])]
 
     @staticmethod

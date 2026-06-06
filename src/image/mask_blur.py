@@ -1,4 +1,5 @@
 import cv2
+import logging
 import numpy as np
 
 from config.video_censor_config import VideoCensorConfig
@@ -15,6 +16,8 @@ class MaskCoordinates:
 
 
 class MaskCensor:
+    logger = logging.getLogger(__name__)
+
     def __init__(self, config: VideoCensorConfig):
         if config.blur_downsample_resolution <= 0:
             raise ValueError("blur_downsample_resolution must be greater than 0")
@@ -173,7 +176,7 @@ class MaskCensor:
                 result = self._blur_cpu(input_image, masks, frame_w, frame_h)
 
         except Exception as ex:
-            print(f"Error in mask_blur: {ex}")
+            self.logger.error(f"Error in mask_blur: {ex}")
             raise
 
         return result

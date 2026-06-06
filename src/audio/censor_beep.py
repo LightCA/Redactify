@@ -1,11 +1,16 @@
+import logging
 import numpy as np
+
+from pathlib import Path
 from scipy.io import wavfile
 from config.audio_censor_config import AudioCensorConfig
 
 
 class CensorBeep:
+    logger = logging.getLogger(__name__)
+
     @staticmethod
-    def run(input_path: str, output_path: str, timestamps: list[tuple[float, float]], config: AudioCensorConfig) -> None:
+    def run(input_path: Path, output_path: Path, timestamps: list[tuple[float, float]], config: AudioCensorConfig) -> None:
         sample_rate, audio = wavfile.read(input_path)
         original_dtype = audio.dtype
 
@@ -16,7 +21,7 @@ class CensorBeep:
             peak = 1.0
 
         n_samples = audio.shape[0]
-        n_channels = audio.shape[1] if audio.ndim > 1 else 1
+        n_channels = audio.shape[1] if audio.ndim > 1 else 1  # type: ignore
 
         ranges = []
         for start, end in timestamps:
@@ -25,7 +30,7 @@ class CensorBeep:
             if s < e:
                 ranges.append((s, e))
             else:
-                print(f"Censor end was before start, skipping... ({start}, {end})")
+                CensorBeep.logger.warning(f"Censor end was before start, skipping... ({start}, {end})")
         ranges.sort()
 
         merged: list[tuple[int, int]] = []

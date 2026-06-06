@@ -5,4 +5,4 @@ logs/
 .env
 profile.austin
 models
-uv.lock
+.DS_Store

@@ -1,4 +1,7 @@
 import cv2
+import logging
+
+from pathlib import Path
 
 from config.video_censor_config import VideoCensorConfig
 from video.face_detector import FaceDetector
@@ -6,8 +9,13 @@ from image.mask_blur import MaskCensor
 
 
 class VideoCensor:
+    logger = logging.getLogger(__name__)
+
     @staticmethod
-    def run(input_path: str, output_path: str, config: VideoCensorConfig) -> None:
+    def run(input_path: Path, output_path: Path, config: VideoCensorConfig | None = None) -> None:
+        if config is None:
+            config = VideoCensorConfig()
+
         detector = FaceDetector(config=config)
 
         cap = cv2.VideoCapture(input_path)
@@ -20,11 +28,11 @@ class VideoCensor:
         blur = MaskCensor(config=config)
         fourcc = cv2.VideoWriter.fourcc(*"mp4v")
         out = cv2.VideoWriter(filename=output_path, fourcc=fourcc, fps=fps, frameSize=(frame_w, frame_h), isColor=True)
-        
+
         for _ in range(total_frames):
             ret, frame = cap.read()
             if not ret:
-                print("Error: Couldn't retrieve frame")
+                VideoCensor.logger.error("Error: Couldn't retrieve frame")
                 raise RuntimeError("Couldn't retrieve frame")
 
             faces = detector.run(frame)

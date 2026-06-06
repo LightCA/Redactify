@@ -1,17 +1,22 @@
 import os
 import cv2
+import logging
 import numpy as np
 
+from pathlib import Path
 from huggingface_hub import hf_hub_download
 
 from config.video_censor_config import VideoCensorConfig
 
 
 class FaceDetector:
+    logger = logging.getLogger(__name__)
+
     def __init__(self, config: VideoCensorConfig):
         self.config = config
         hf_token = os.environ["HF_TOKEN"]
-        local_dir = os.path.join(os.environ["MODELS_DIRECTORY"], self.config.fd_repo_id.rsplit("/", 1)[-1])
+        models_dir = Path(os.environ["MODELS_DIRECTORY"])
+        local_dir = models_dir / self.config.fd_repo_id.rsplit("/", 1)[-1]
         model_path = hf_hub_download(
             repo_id=self.config.fd_repo_id, filename=self.config.fd_file_name, local_dir=local_dir, token=hf_token
         )
