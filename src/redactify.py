@@ -14,6 +14,9 @@ from video.censor import VideoCensor, VideoCensorConfig
 class Redactify:
     _init_logger: bool = False
     _init_working_dirs: bool = False
+    logger: logging.Logger
+    input_dir: Path
+    intermediate_dir: Path
     valid_extensions = [".mp4", ".avi", ".webm", ".ogv", ".mkv", ".wmv"]
 
     def __init__(self):
@@ -21,8 +24,8 @@ class Redactify:
         self._create_working_dirs()
 
     def _configure_logger(self):
-        if not self._init_logger:
-            log_dir = Path(__file__).parent / "logs"
+        if not Redactify._init_logger:
+            log_dir = Path(__file__).parent.parent / "logs"
             log_dir.mkdir(exist_ok=True)
 
             formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -33,22 +36,25 @@ class Redactify:
             console_handler = logging.StreamHandler()
             console_handler.setFormatter(formatter)
 
-            self.logger = logging.getLogger(__name__)
-            self.logger.setLevel(logging.DEBUG)
-            self.logger.addHandler(file_handler)
-            self.logger.addHandler(console_handler)
-            self._init_logger = True
+            root_logger = logging.getLogger()
+            root_logger.setLevel(logging.DEBUG)
+            root_logger.addHandler(file_handler)
+            root_logger.addHandler(console_handler)
+            Redactify.logger = logging.getLogger(__name__)
 
-    def _create_working_dirs(self):
-        if not self._init_working_dirs:
+            Redactify._init_logger = True
+
+    @staticmethod
+    def _create_working_dirs():
+        if not Redactify._init_working_dirs:
             working_dir = Path(os.environ["WORKING_DIRECTORY"])
 
-            self.input_dir = working_dir / "input"
-            self.intermediate_dir = working_dir / "intermediate"
+            Redactify.input_dir = working_dir / "input"
+            Redactify.intermediate_dir = working_dir / "intermediate"
 
-            os.makedirs(self.input_dir, exist_ok=True)
-            os.makedirs(self.intermediate_dir, exist_ok=True)
-            self._init_working_dirs = True
+            os.makedirs(Redactify.input_dir, exist_ok=True)
+            os.makedirs(Redactify.intermediate_dir, exist_ok=True)
+            Redactify._init_working_dirs = True
 
     def run_audio_pipeline(self, input_path: Path, output_path: Path, audio_config: AudioCensorConfig | None = None):
         try:
