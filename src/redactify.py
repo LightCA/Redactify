@@ -12,49 +12,26 @@ from video.censor import VideoCensor, VideoCensorConfig
 
 
 class Redactify:
-    _init_logger: bool = False
     _init_working_dirs: bool = False
-    logger: logging.Logger
     input_dir: Path
     intermediate_dir: Path
     valid_extensions = [".mp4", ".avi", ".webm", ".ogv", ".mkv", ".wmv"]
+    logger: logging.Logger = logging.getLogger(__name__)
 
     def __init__(self):
-        self._configure_logger()
         self._create_working_dirs()
 
-    def _configure_logger(self):
-        if not Redactify._init_logger:
-            log_dir = Path(__file__).parent.parent / "logs"
-            log_dir.mkdir(exist_ok=True)
-
-            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-            file_handler = logging.FileHandler(log_dir / "app.log")
-            file_handler.setFormatter(formatter)
-
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-
-            root_logger = logging.getLogger()
-            root_logger.setLevel(logging.DEBUG)
-            root_logger.addHandler(file_handler)
-            root_logger.addHandler(console_handler)
-            Redactify.logger = logging.getLogger(__name__)
-
-            Redactify._init_logger = True
-
-    @staticmethod
-    def _create_working_dirs():
-        if not Redactify._init_working_dirs:
+    @classmethod
+    def _create_working_dirs(cls):
+        if not cls._init_working_dirs:
             working_dir = Path(os.environ["WORKING_DIRECTORY"])
 
-            Redactify.input_dir = working_dir / "input"
-            Redactify.intermediate_dir = working_dir / "intermediate"
+            cls.input_dir = working_dir / "input"
+            cls.intermediate_dir = working_dir / "intermediate"
 
-            os.makedirs(Redactify.input_dir, exist_ok=True)
-            os.makedirs(Redactify.intermediate_dir, exist_ok=True)
-            Redactify._init_working_dirs = True
+            os.makedirs(cls.input_dir, exist_ok=True)
+            os.makedirs(cls.intermediate_dir, exist_ok=True)
+            cls._init_working_dirs = True
 
     def run_audio_pipeline(self, input_path: Path, output_path: Path, audio_config: AudioCensorConfig | None = None):
         try:
@@ -112,14 +89,14 @@ class Redactify:
             audio_censor_config = AudioCensorConfig(**RedactifyCLI.config_kwargs(AudioCensorConfig, kwargs))
             video_censor_config = VideoCensorConfig(**RedactifyCLI.config_kwargs(VideoCensorConfig, kwargs))
 
-            video_thread = threading.Thread(
-                target=self.run_video_pipeline, args=(input_path, working_video_intermediate_path, video_censor_config)
-            )
-            audio_thread = threading.Thread(
-                target=self.run_audio_pipeline, args=(input_path, working_audio_intermediate_path, audio_censor_config)
-            )
-
-            threads = [audio_thread, video_thread]
+            threads = [
+                threading.Thread(
+                    target=self.run_video_pipeline, args=(input_path, working_video_intermediate_path, video_censor_config)
+                ),
+                threading.Thread(
+                    target=self.run_audio_pipeline, args=(input_path, working_audio_intermediate_path, audio_censor_config)
+                ),
+            ]
             for thread in threads:
                 thread.start()
 

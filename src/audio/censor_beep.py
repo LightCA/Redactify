@@ -8,9 +8,9 @@ from config.audio_censor_config import AudioCensorConfig
 
 class CensorBeep:
     logger = logging.getLogger(__name__)
-
-    @staticmethod
-    def run(input_path: Path, output_path: Path, timestamps: list[tuple[float, float]], config: AudioCensorConfig) -> None:
+    
+    @classmethod
+    def run(cls, input_path: Path, output_path: Path, timestamps: list[tuple[float, float]], config: AudioCensorConfig) -> None:
         sample_rate, audio = wavfile.read(input_path)
         original_dtype = audio.dtype
 
@@ -30,7 +30,7 @@ class CensorBeep:
             if s < e:
                 ranges.append((s, e))
             else:
-                CensorBeep.logger.warning(f"Censor end was before start, skipping... ({start}, {end})")
+                cls.logger.warning(f"Censor end was before start, skipping... ({start}, {end})")
         ranges.sort()
 
         merged: list[tuple[int, int]] = []

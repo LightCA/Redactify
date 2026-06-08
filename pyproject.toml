@@ -1,7 +1,7 @@
 [project]
 name = "redactify"
 version = "0.1.0"
-description = "A program that automatically detects and censors PII in audio and video"
+description = "A solution that automatically detects and censors PII in audio and video. Faces are pixelated and spoken PII is replaced with a beep tone."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
@@ -20,6 +20,7 @@ dependencies = [
     "nvidia-cublas-cu12 ; sys_platform != 'darwin'",
     "nvidia-cudnn-cu12 ; sys_platform != 'darwin'",
     "crossfiledialog",
+    "python-dotenv",
 ]
 
 [[tool.uv.index]]

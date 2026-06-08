@@ -23,7 +23,7 @@ class SpeechSeparator:
             savedir=savedir,
             local_strategy=LocalStrategy.COPY
         )
-        sepformer.to(f"{self.config.device}:0") # TODO: Allow specifying device index for multi-GPU setups
+        sepformer.to(f"{self.config.device}:0") # type: ignore # TODO: Allow specifying device index for multi-GPU setups
         return sepformer
 
     def separate(self, waveform: torch.Tensor, start: float = 0, end: float = -1) -> list[torch.Tensor]:

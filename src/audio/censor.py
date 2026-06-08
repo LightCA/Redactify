@@ -11,8 +11,8 @@ from config.audio_censor_config import AudioCensorConfig
 class AudioCensor:
     logger = logging.getLogger(__name__)
 
-    @staticmethod
-    def run(input_path: Path, output_path: Path, config: AudioCensorConfig | None):
+    @classmethod
+    def run(cls, input_path: Path, output_path: Path, config: AudioCensorConfig | None):
         if config is None:
             config = AudioCensorConfig()
 
@@ -34,4 +34,4 @@ class AudioCensor:
                 t_word_end = t_seg["words"][t_word_lookup[pii_entity["offset"] + pii_entity["length"] - 1]]
                 pii_timestamps.append((t_word_start["start"], t_word_end["end"]))
 
-        CensorBeep.run(input_path=input_path, output_path=output_path, timestamps=pii_timestamps, config=config)
+        CensorBeep.run(input_path, output_path, pii_timestamps, config)

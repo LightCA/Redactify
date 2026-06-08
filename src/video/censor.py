@@ -11,8 +11,8 @@ from image.mask_blur import MaskCensor
 class VideoCensor:
     logger = logging.getLogger(__name__)
 
-    @staticmethod
-    def run(input_path: Path, output_path: Path, config: VideoCensorConfig | None = None) -> None:
+    @classmethod
+    def run(cls, input_path: Path, output_path: Path, config: VideoCensorConfig | None = None) -> None:
         if config is None:
             config = VideoCensorConfig()
 
@@ -32,7 +32,7 @@ class VideoCensor:
         for _ in range(total_frames):
             ret, frame = cap.read()
             if not ret:
-                VideoCensor.logger.error("Error: Couldn't retrieve frame")
+                cls.logger.error("Error: Couldn't retrieve frame")
                 raise RuntimeError("Couldn't retrieve frame")
 
             faces = detector.run(frame)

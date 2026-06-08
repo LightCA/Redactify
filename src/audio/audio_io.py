@@ -10,8 +10,8 @@ from pathlib import Path
 class AudioIO:
     logger = logging.getLogger(__name__)
 
-    @staticmethod
-    def load(input_path: Path, sample_rate: int = 0) -> tuple[torch.Tensor, int]:
+    @classmethod
+    def load(cls, input_path: Path, sample_rate: int = 0) -> tuple[torch.Tensor, int]:
         waveform, sr = torchaudio.load(input_path)
         if waveform.shape[0] > 1:
             waveform = waveform.mean(dim=0, keepdim=True)
