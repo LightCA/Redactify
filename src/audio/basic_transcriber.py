@@ -11,7 +11,7 @@ from faster_whisper import BatchedInferencePipeline, WhisperModel
 
 class BasicTranscriber:
     logger = logging.getLogger(__name__)
-    
+
     def __init__(self, config: AudioCensorConfig):
         self.config = config
 
@@ -25,7 +25,6 @@ class BasicTranscriber:
     ) -> tuple[list[dict[str, Any]], Any]:
         if isinstance(audio, torch.Tensor):
             audio = audio.numpy().astype(np.float32)
-
 
         vad = VadOptions(
             threshold=0.5, neg_threshold=0.35, min_speech_duration_ms=30, min_silence_duration_ms=80, speech_pad_ms=0

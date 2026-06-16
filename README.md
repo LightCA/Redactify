@@ -25,12 +25,12 @@ flowchart TD
     classDef para   fill:#2d1e00,stroke:#c09040,color:#fff,stroke-width:2px
     classDef audioStep fill:#1a0a3d,stroke:#7b68ee,color:#fff,stroke-width:2px
     classDef videoStep fill:#00302e,stroke:#38b2a8,color:#fff,stroke-width:2px
-    classDef mux       fill:#003820,stroke:#38a868,color:#fff,stroke-width:2px
+    classDef mix       fill:#003820,stroke:#38a868,color:#fff,stroke-width:2px
     classDef cleanup   fill:#1a1e28,stroke:#5a6880,color:#fff,stroke-width:2px
     style AUDIO fill:#110820,stroke:#7b68ee,stroke-width:2px,color:#e6f1ff
     style VIDEO fill:#00201e,stroke:#38b2a8,stroke-width:2px,color:#e6f1ff
 
-    A(["File Picker Dialog"])
+    A(["CLI / File Picker Dialog"])
 
     subgraph AUDIO ["Audio Pipeline"]
         direction TB
@@ -44,10 +44,10 @@ flowchart TD
 
     subgraph VIDEO ["Video Pipeline"]
         direction TB
-        E1("Convert to H264 (FFmpeg)") --> E2("Read Frames (OpenCV)")
-        E2 --> E3("Detect Faces (YuNet ONNX)")
-        E3 --> E4("Pixelate Faces (Feathered Mask)")
-        E4 --> E5("Write Censored Frames")
+        E1("Read Frames (OpenCV)")
+        E1 --> E2("Detect Faces (YuNet ONNX)")
+        E2 --> E3("Pixelate Faces (OpenCV)")
+        E3 --> E4("Write Censored Frames (OpenCV)")
     end
 
     A --> AUDIO
@@ -55,15 +55,11 @@ flowchart TD
 
     AUDIO & VIDEO --> F("Combine Audio + Video (FFmpeg)")
 
-    F --> G(["Output Video .mp4"])
-    G --> H("Cleanup Temporary Files")
-
     class A,G terminal
     class C para
     class D1,D2,D3,D4,D5,D6,D7 audioStep
     class E1,E2,E3,E4,E5 videoStep
-    class F mux
-    class H cleanup
+    class F mix
 ```
 
 ---
@@ -73,7 +69,7 @@ flowchart TD
 | Step | Description |
 |------|-------------|
 | **1. File Selection** | If no `input_path` argument is given, a `crossfiledialog` file picker prompts for the source video. |
-| **2. Parallel Fork** | Two threads are started immediately. Each thread handles its own FFmpeg pre-processing step as its first action: the audio thread extracts the audio track to `input/.wav`; the video thread re-encodes to H264 (lossless, CRF 0) into `input/.mp4`. |
+| **2. Parallel Fork** | Two threads are started immediately. The audio thread extracts the audio track to `input/.wav` via FFmpeg; the video thread copies the source file into `input/` for frame processing. |
 | **3. Speaker Separation** | [Sepformer](https://huggingface.co/speechbrain/sepformer-whamr16k) decomposes the audio into individual speaker channels, improving downstream transcription accuracy in multi-speaker scenarios. |
 | **4. Speech-to-Text** | [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) (`large-v3`) transcribes each speaker channel with word-level timestamps. Auto-detects language from several supported languages. |
 | **5. Word Alignment** | PyTorch's [MMS Forced Aligner](https://pytorch.org/audio/stable/tutorials/forced_alignment_tutorial.html) refines Whisper's timestamps producing tighter intervals for each spoken word. |
@@ -155,6 +151,7 @@ uv run src/main.py [input_path] [output_path] [options]
 | `--censor-frequency HZ` | `1000` | Beep tone frequency |
 | `--censor-amplitude AMP` | — | Beep tone amplitude (0–1) |
 | `--censor-padding SECS` | `0.1` | Silence padding added before/after each beep |
+| `--fd-input-max-size N` | `0` | Downscale frames to this max dimension before face detection (0 = disabled) |
 | `--fd-score-threshold F` | — | YuNet face detection confidence threshold |
 | `--fd-nms-threshold F` | — | YuNet NMS IoU threshold |
 | `--fd-top-k N` | — | Maximum number of faces detected per frame |
@@ -190,5 +187,5 @@ uv run src/main.py footage.mp4 --device cpu --censor-frequency 800
 | **CLI enhancements** | Add sub-commands (e.g. `audio-only`, `video-only`) and richer progress reporting. |
 | **API interface** | Expose a REST endpoint via FastAPI for on-demand processing. |
 | **Redaction report** | Generate a structured JSON or PDF report listing all detected PII entities, their categories, confidence scores, and timestamps. |
-| **Containerisation** | Package the full stack as a Docker image with CUDA base to simplify deployment and eliminate the manual FFmpeg / Python version constraints. |
+| **Containerisation** | Package the full stack as a Docker image with CUDA base to simplify deployment. |
 | **Application Insights integration** | Send telemetry to Azure Application Insights. |

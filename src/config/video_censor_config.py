@@ -14,6 +14,7 @@ class VideoCensorConfig:
     fd_score_threshold: float = 0.3
     fd_nms_threshold: float = 0.3
     fd_top_k: int = 5000
+    fd_input_max_size: int = 0  # 0 disables rescaling
 
     # blur parameters
     blur_downsample_resolution: int = 10

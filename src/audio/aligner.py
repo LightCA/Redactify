@@ -5,6 +5,7 @@ import logging
 from typing import Any
 from functools import cached_property
 
+# NOTE: CC-BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International) license
 from torchaudio.pipelines import MMS_FA as bundle
 from config.audio_censor_config import AudioCensorConfig
 

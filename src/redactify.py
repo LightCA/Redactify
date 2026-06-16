@@ -44,7 +44,7 @@ class Redactify:
             AudioCensor.run(working_input_path, output_path, audio_config)
         except Exception as ex:
             self.logger.error(ex)
-            raise (ex)
+            raise ex
         finally:
             if os.path.exists(working_input_path):
                 os.remove(working_input_path)
@@ -62,7 +62,7 @@ class Redactify:
             VideoCensor.run(working_input_path, output_path, video_config)
         except Exception as ex:
             self.logger.error(ex)
-            raise (ex)
+            raise ex
         finally:
             if os.path.exists(working_input_path):
                 os.remove(working_input_path)

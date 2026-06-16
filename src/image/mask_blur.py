@@ -26,6 +26,8 @@ class MaskCensor:
 
         if config.device == "cuda":
             self.stream = cv2.cuda.Stream()
+            self._gpu_input: cv2.cuda.GpuMat | None = None
+            self._gpu_masked_buffer: cv2.cuda.GpuMat | None = None
 
     @staticmethod
     def cv_type(img):
@@ -80,12 +82,24 @@ class MaskCensor:
 
         return MaskCoordinates(x1, y1, x2, y2, mask_censor_width, mask_censor_height)
 
-    def _blur_cuda(self, input_image, masks, frame_w, frame_h) -> cv2.typing.MatLike:
-        type = self.cv_type(input_image)
-        gpu_input = cv2.cuda.GpuMat(arr=input_image)
-        gpu_masked_buffer = cv2.cuda.GpuMat(
-            size=(self.config.blur_downsample_resolution, self.config.blur_downsample_resolution), type=type
-        )
+    def _blur_cuda(self, input_image: cv2.typing.MatLike, masks: np.ndarray, frame_w: int, frame_h: int) -> cv2.typing.MatLike:
+        gpu_type = self.cv_type(input_image)
+        input_size = (input_image.shape[1], input_image.shape[0])
+
+        if self._gpu_input is None or self._gpu_input.size() != input_size or self._gpu_input.type() != gpu_type:
+            self._gpu_input = cv2.cuda.GpuMat(arr=input_image)
+        else:
+            self._gpu_input.upload(input_image, stream=self.stream)
+
+        buffer_size = (self.config.blur_downsample_resolution, self.config.blur_downsample_resolution)
+        if (
+            self._gpu_masked_buffer is None
+            or self._gpu_masked_buffer.size() != buffer_size
+            or self._gpu_masked_buffer.type() != gpu_type
+        ):
+            self._gpu_masked_buffer = cv2.cuda.GpuMat(size=buffer_size, type=gpu_type)
+
+        _gpu_blur_roi: cv2.cuda.GpuMat | None = None
 
         # Sort by area (w * h) descending to overlap based on the size of the mask
         for mask in sorted(masks, key=lambda m: m[2] * m[3]):
@@ -93,15 +107,20 @@ class MaskCensor:
             if mask_coords is None:
                 continue
 
+            roi_w = mask_coords.x2 - mask_coords.x1
+            roi_h = mask_coords.y2 - mask_coords.y1
+            roi_size = (roi_w, roi_h)
+
             # Create gpu mat reference to subsection of the input image and masked buffer
             gpu_censored = cv2.cuda.GpuMat(
-                gpu_masked_buffer, (0, 0, mask_coords.downsample_width, mask_coords.downsample_height)
+                self._gpu_masked_buffer, (0, 0, mask_coords.downsample_width, mask_coords.downsample_height)
             )
-            gpu_image_roi = cv2.cuda.GpuMat(
-                gpu_input, (mask_coords.x1, mask_coords.y1, mask_coords.x2 - mask_coords.x1, mask_coords.y2 - mask_coords.y1)
-            )
+            gpu_image_roi = cv2.cuda.GpuMat(self._gpu_input, (mask_coords.x1, mask_coords.y1, roi_w, roi_h))
 
-            # Downsample the masked area, then upsample back to the original size to achieve blur effect, and copy back to the gpu image
+            if _gpu_blur_roi is None or _gpu_blur_roi.size() != roi_size or _gpu_blur_roi.type() != gpu_type:
+                _gpu_blur_roi = cv2.cuda.GpuMat(size=roi_size, type=gpu_type)
+
+            # Downsample then upsample into a separate buffer (not directly into the roi)
             cv2.cuda.resize(
                 src=gpu_image_roi,
                 dst=gpu_censored,
@@ -111,16 +130,36 @@ class MaskCensor:
             )
             cv2.cuda.resize(
                 src=gpu_censored,
-                dst=gpu_image_roi,
-                dsize=(mask_coords.x2 - mask_coords.x1, mask_coords.y2 - mask_coords.y1),
+                dst=_gpu_blur_roi,
+                dsize=(roi_w, roi_h),
                 interpolation=self.config.blur_upsample_interpolation,
                 stream=self.stream,
             )
-            self.stream.waitForCompletion()
 
-        return gpu_input.download()
+            # Build feathered alpha and upload to GPU
+            blur_alpha = self.create_feathered_alpha(
+                roi_w, roi_h, inner=self.config.blur_feather_inner, outer=self.config.blur_feather_outer
+            )
+            alpha_3ch = np.repeat(blur_alpha, 3, axis=2)
+            gpu_alpha = cv2.cuda.GpuMat(size=roi_size, type=cv2.CV_32FC3)
+            gpu_alpha.upload(alpha_3ch, stream=self.stream)
+            gpu_inv_alpha = cv2.cuda.GpuMat(size=roi_size, type=cv2.CV_32FC3)
+            gpu_inv_alpha.upload(1.0 - alpha_3ch, stream=self.stream)
 
-    def _blur_cpu(self, input_image: cv2.typing.MatLike, masks: np.ndarray, frame_w, frame_h) -> cv2.typing.MatLike:
+            # Convert ROIs to float32, blend on GPU, convert back and write into the input ROI
+            gpu_blurred_f = _gpu_blur_roi.convertTo(cv2.CV_32FC3, stream=self.stream)
+            gpu_original_f = gpu_image_roi.convertTo(cv2.CV_32FC3, stream=self.stream)
+            gpu_blended_f = cv2.cuda.add(
+                cv2.cuda.multiply(gpu_blurred_f, gpu_alpha, stream=self.stream),
+                cv2.cuda.multiply(gpu_original_f, gpu_inv_alpha, stream=self.stream),
+                stream=self.stream,
+            )
+            gpu_blended_f.convertTo(cv2.CV_8UC3, dst=gpu_image_roi, stream=self.stream)
+
+        self.stream.waitForCompletion()
+        return self._gpu_input.download()
+
+    def _blur_cpu(self, input_image: cv2.typing.MatLike, masks: np.ndarray, frame_w: int, frame_h: int) -> cv2.typing.MatLike:
         result = input_image.copy()
         resized_masked_buffer = np.zeros(
             (self.config.blur_downsample_resolution, self.config.blur_downsample_resolution, 3), dtype=np.uint8

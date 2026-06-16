@@ -32,6 +32,7 @@ class RedactifyCLI:
         self._parser.add_argument("--censor-padding", dest="censor_padding", type=float)
 
         # Video config
+        self._parser.add_argument("--fd-input-max-size", dest="fd_input_max_size", type=int)
         self._parser.add_argument("--fd-score-threshold", dest="fd_score_threshold", type=float)
         self._parser.add_argument("--fd-nms-threshold", dest="fd_nms_threshold", type=float)
         self._parser.add_argument("--fd-top-k", dest="fd_top_k", type=int)
